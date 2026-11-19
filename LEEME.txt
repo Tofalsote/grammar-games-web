@@ -1,0 +1,29 @@
+GRAMMAR GAMES
+=============
+
+Repasa la gramatica de Ingles I jugando: fichas de teoria, ejercicios y minijuegos.
+
+COMO ABRIRLO
+------------
+1. Descomprime este zip entero en una carpeta
+   (clic derecho > "Extraer todo"; no abras los archivos desde dentro del zip).
+2. Entra en la carpeta grammar_games y haz doble clic en index.html.
+3. Se abre en tu navegador. Ya puedes jugar.
+
+QUE NECESITAS
+-------------
+- Un navegador actual: Chrome, Edge, Firefox, Brave o Safari. Tambien va en el movil.
+- Nada mas. No hay que instalar nada y funciona sin Internet.
+- Para oir las frases (boton del altavoz y el dictado) el ordenador necesita una voz
+  en ingles. Windows y macOS la traen; en Linux: speech-dispatcher + espeak-ng.
+
+SI ALGO NO VA
+-------------
+- Se ve sin colores o no responde: no lo has descomprimido, o has movido
+  index.html fuera de su carpeta. Tiene que estar junto a las carpetas css y js.
+- Tu progreso se guarda en tu navegador. Si cambias de navegador o de ordenador,
+  empiezas de cero. Para borrarlo: "Empezar de cero", al final del menu.
+
+ES SEGURO
+---------
+La pagina no envia datos a ningun sitio ni carga nada de Internet.
