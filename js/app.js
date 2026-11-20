@@ -2,7 +2,17 @@
 (function () {
   'use strict';
 
-  const { UNITS, EXTRAS, VERBS, RAIN, SWIPE } = window.CONTENT;
+  const { VERBS, RAIN, SWIPE } = window.CONTENT;
+  /* Dos cursos: 1º ASIR (Inglés I, content.js) y 2º ASIR (Inglés II, content2.js). */
+  const COURSES = [
+    { id: 'c1', short: '1º', name: '1º ASIR', subject: 'Inglés I', pages: '07', all: 'all', units: window.CONTENT.UNITS },
+    { id: 'c2', short: '2º', name: '2º ASIR', subject: 'Inglés II', pages: '09', all: 'all2', units: (window.CONTENT2 || { UNITS: [] }).UNITS },
+  ];
+  const UNITS = COURSES.flatMap((c) => c.units);
+  const EXTRAS = window.CONTENT.EXTRAS.concat([
+    { id: 'x-forge', kind: 'forge', title: 'Forja de verbos', icon: '⚒️', sub: 'Irregulares: past simple y participio, con 3 vidas', only: 'c2' },
+  ]);
+  const extrasOf = (c) => EXTRAS.filter((g) => !g.only || g.only === c.id);
 
   /* ---------- utilidades ---------- */
 
@@ -68,22 +78,32 @@
 
   const LESSONS = [];
   const EX = new Map();
+  for (const c of COURSES) for (const u of c.units) u.course = c;
   for (const u of UNITS) {
     u.lessons.forEach((l, i) => {
       l.unit = u;
+      l.course = u.course;
       l.idx = i;
       l.ex.forEach((e, j) => {
         e.id = l.id + '-' + j;
         e.lesson = l;
+        e.course = u.course;
         EX.set(e.id, e);
       });
       LESSONS.push(l);
     });
-    for (const g of u.games) g.unit = u;
+    for (const g of u.games) {
+      g.unit = u;
+      if (g.kind === 'swipe') Object.assign(g, { bins: ['Carta informal', 'Formal'], bank: SWIPE, badge: 'swipe', badgeAt: 15 });
+    }
   }
   const GAMES = UNITS.flatMap((u) => u.games).concat(EXTRAS);
-  const SEC = { grammar: ['01', 'Grammar', 'G'], vocab: ['02', 'Vocabulary', 'V'], writing: ['03', 'Writing', 'W'] };
-  const DICT = [...new Set(LESSONS.flatMap((l) => l.examples))].filter((s) => !/\d/.test(s));
+  const SEC = { grammar: ['01', 'Grammar', 'G', 'grammar'], vocab: ['02', 'Vocabulary', 'V', 'vocab'], writing: ['03', 'Writing', 'W', 'writing'] };
+  const SEC_CLS = ['grammar', 'vocab', 'writing'];
+  /* [número, nombre del bloque, letra del menú, clase de color] */
+  const secOf = (l) => (typeof l.sec === 'number' ? ['0' + (l.sec + 1), l.unit.secs[l.sec], String(l.sec + 1), SEC_CLS[l.sec]] : SEC[l.sec]);
+  const lessonsOf = (c) => LESSONS.filter((l) => l.course === c);
+  const dictOf = (c) => [...new Set(lessonsOf(c).flatMap((l) => l.examples))].filter((s) => !/\d/.test(s));
 
   /* ---------- estado ---------- */
 
@@ -96,6 +116,18 @@
   let xp = Number(store.get('xp', 0)) || 0;
   let streak = 0;
   const closed = asSet('closed');
+  let course = COURSES.find((c) => c.id === store.get('course', 'c1')) || COURSES[0];
+  const mistakesOf = (c) => [...mistakes].filter((id) => EX.has(id) && EX.get(id).course === c);
+  function setCourse(c) {
+    if (!c || c === course) return;
+    course = c;
+    store.set('course', c.id);
+    renderCourseSel();
+  }
+  function renderCourseSel() {
+    for (const b of $$('#courseSel button')) b.setAttribute('aria-pressed', String(b.dataset.course === course.id));
+    document.documentElement.dataset.course = course.id;
+  }
 
   let stopView = null; /* limpia temporizadores del juego abierto */
   let keyHandler = null; /* teclas de la vista abierta */
@@ -117,16 +149,22 @@
     { id: 'first', icon: '✏️', name: 'Primer paso', how: 'Responde tu primera pregunta.' },
     { id: 'perfect', icon: '🧠', name: 'De memoria', how: 'Completa una lección sin fallos ni pistas.' },
     { id: 'streak', icon: '🔥', name: 'Racha de 10', how: 'Acierta 10 preguntas seguidas a la primera.' },
-    { id: 'u1', icon: '☕', name: 'Unit 1 superada', how: 'Completa las 6 lecciones de la unidad 1.' },
-    { id: 'u2', icon: '🏙️', name: 'Unit 2 superada', how: 'Completa las 6 lecciones de la unidad 2.' },
-    { id: 'u3', icon: '✈️', name: 'Unit 3 superada', how: 'Completa las 6 lecciones de la unidad 3.' },
-    { id: 'all', icon: '👑', name: 'Inglés I completo', how: 'Completa las 18 lecciones.' },
+    { id: 'u1', icon: '☕', name: '1º · Unit 1 superada', how: 'Completa las 6 lecciones de la unidad 1 de Inglés I.' },
+    { id: 'u2', icon: '🏙️', name: '1º · Unit 2 superada', how: 'Completa las 6 lecciones de la unidad 2 de Inglés I.' },
+    { id: 'u3', icon: '✈️', name: '1º · Unit 3 superada', how: 'Completa las 6 lecciones de la unidad 3 de Inglés I.' },
+    { id: 'all', icon: '👑', name: 'Inglés I completo', how: 'Completa las 18 lecciones de 1º ASIR.' },
+    { id: 'b1', icon: '💼', name: '2º · Unit 1 superada', how: 'Completa las 8 lecciones de la unidad 1 de Inglés II.' },
+    { id: 'b2', icon: '🕰️', name: '2º · Unit 2 superada', how: 'Completa las 8 lecciones de la unidad 2 de Inglés II.' },
+    { id: 'b3', icon: '🔮', name: '2º · Unit 3 superada', how: 'Completa las 8 lecciones de la unidad 3 de Inglés II.' },
+    { id: 'all2', icon: '🎓', name: 'Inglés II completo', how: 'Completa las 24 lecciones de 2º ASIR.' },
     { id: 'rush', icon: '⏱️', name: 'Hora punta', how: 'Acierta 12 preguntas en un contrarreloj.' },
     { id: 'hunt', icon: '🔎', name: 'Ojo de lince', how: 'Corrige todos los errores de un texto.' },
-    { id: 'huntall', icon: '🕵️', name: 'Detective', how: 'Corrige los tres textos de la caza de errores.' },
+    { id: 'huntall', icon: '🕵️', name: 'Detective', how: 'Corrige los tres textos de la caza de errores de un curso.' },
     { id: 'forge', icon: '⚒️', name: 'Herrero', how: 'Encadena 15 verbos seguidos en la Forja.' },
     { id: 'rain', icon: '☔', name: 'Bajo la lluvia', how: 'Salva 20 frases en la Lluvia de preposiciones.' },
     { id: 'swipe', icon: '🎩', name: 'Muy formal', how: 'Acierta 15 en Formal o informal.' },
+    { id: 'tenses', icon: '🧭', name: 'Detective de tiempos', how: 'Acierta 15 en un Detective de tiempos (2º).' },
+    { id: 'cond', icon: '🔀', name: 'Maestro del if', how: 'Acierta 15 en Condicionales (2º).' },
     { id: 'review', icon: '🩹', name: 'Cuentas saldadas', how: 'Vacía tu lista de repaso de fallos.' },
     { id: 'listen', icon: '🎧', name: 'Buen oído', how: 'Acierta un dictado.' },
   ];
@@ -274,7 +312,7 @@
   const unitDone = (u) => u.lessons.filter((l) => done.has(l.id)).length;
   function checkUnitBadges() {
     for (const u of UNITS) if (unitDone(u) === u.lessons.length) award(u.id);
-    if (LESSONS.every((l) => done.has(l.id))) award('all');
+    for (const c of COURSES) if (lessonsOf(c).length && lessonsOf(c).every((l) => done.has(l.id))) award(c.all);
   }
 
   /* ---------- menú lateral ---------- */
@@ -284,7 +322,10 @@
       const total = parseHunt(g.text).filter((s) => s.err).length;
       return `${(hunts[g.id] || []).length}/${total} errores`;
     }
-    if (g.kind === 'review') return mistakes.size ? `${mistakes.size} ${mistakes.size === 1 ? 'pendiente' : 'pendientes'}` : 'nada pendiente';
+    if (g.kind === 'review') {
+      const m = mistakesOf(course).length;
+      return m ? `${m} ${m === 1 ? 'pendiente' : 'pendientes'}` : 'nada pendiente';
+    }
     if (g.kind === 'dict') return 'necesita voz';
     if (g.kind === 'forge') return `récord ${Math.max(best['forge-past'] || 0, best['forge-part'] || 0)}`;
     return `récord ${best[g.id] || 0}`;
@@ -302,17 +343,17 @@
     return (
       `<li><button type="button" class="nav-item is-game${route === id ? ' active' : ''}" data-go="${id}">` +
       `<span class="tag">${g.icon}</span><span class="nav-txt">${esc(g.title)}<small>${esc(bestLabel(g))}</small></span>` +
-      (g.kind === 'review' && mistakes.size ? `<span class="pill">${mistakes.size}</span>` : '') +
+      (g.kind === 'review' && mistakesOf(course).length ? `<span class="pill">${mistakesOf(course).length}</span>` : '') +
       `</button></li>`
     );
   }
   function renderSidebar(route) {
     let h = `<button type="button" class="nav-home${route === '#/home' ? ' active' : ''}" data-go="#/home">🏠 Portada</button>`;
-    for (const u of UNITS) {
-      h += foldHead(u.id, u.n, `Unit ${u.n} \\ Inglés I`, u.title, `${unitDone(u)}/${u.lessons.length}`);
+    for (const u of course.units) {
+      h += foldHead(u.id, u.n, `Unit ${u.n} \\ ${course.subject}`, u.title, `${unitDone(u)}/${u.lessons.length}`);
       for (const l of u.lessons) {
         const id = '#/l/' + l.id;
-        const s = SEC[l.sec];
+        const s = secOf(l);
         h +=
           `<li><button type="button" class="nav-item${done.has(l.id) ? ' done' : ''}${route === id ? ' active' : ''}" data-go="${id}">` +
           `<span class="tag" aria-hidden="true">${done.has(l.id) ? '✓' : s[2]}</span>` +
@@ -321,8 +362,8 @@
       for (const g of u.games) h += navGame(g, route);
       h += '</ol>';
     }
-    h += foldHead('x', '★', 'Extra', 'Repaso y oído', '');
-    for (const g of EXTRAS) h += navGame(g, route);
+    h += foldHead('x', '★', `Extra \\ ${course.name}`, 'Repaso y práctica', '');
+    for (const g of extrasOf(course)) h += navGame(g, route);
     h += '</ol>';
     h += `<div class="sidebar-foot"><button type="button" class="link" id="btnReset">Empezar de cero</button></div>`;
     el.sidebar.innerHTML = h;
@@ -342,10 +383,15 @@
     $('#btnMenu').setAttribute('aria-expanded', 'false');
     let m;
     if ((m = r.match(/^#\/l\/([\w-]+)$/)) && LESSONS.find((l) => l.id === m[1])) {
-      viewLesson(LESSONS.find((l) => l.id === m[1]));
+      const l = LESSONS.find((x) => x.id === m[1]);
+      setCourse(l.course);
+      viewLesson(l);
       renderSidebar(r);
     } else if ((m = r.match(/^#\/g\/([\w-]+)$/)) && GAMES.find((g) => g.id === m[1])) {
-      viewGame(GAMES.find((g) => g.id === m[1]));
+      const g = GAMES.find((x) => x.id === m[1]);
+      if (g.unit) setCourse(g.unit.course);
+      else if (g.only) setCourse(COURSES.find((c) => c.id === g.only));
+      viewGame(g);
       renderSidebar(r);
     } else {
       viewHome();
@@ -361,31 +407,40 @@
   /* ---------- portada ---------- */
 
   function nextLesson() {
-    return LESSONS.find((l) => !done.has(l.id));
+    return lessonsOf(course).find((l) => !done.has(l.id));
   }
   function viewHome() {
     const nl = nextLesson();
-    const total = LESSONS.filter((l) => done.has(l.id)).length;
+    const CL = lessonsOf(course);
+    const total = CL.filter((l) => done.has(l.id)).length;
+    const pend = mistakesOf(course).length;
+    const other = COURSES.find((c) => c !== course);
     let h = `<div class="home">
       <section class="cover">
         <div>
-          <div class="eyebrow">Lengua extranjera \\ Inglés I \\ ${total}/${LESSONS.length} lecciones</div>
-          <h1>Let's learn <em>English</em> together.</h1>
-          <p>La teoría de tus tres unidades, ejercicios que se corrigen solos y minijuegos para fijarlo: tiempos verbales, pronombres, preposiciones, vocabulario y writing.</p>
+          <div class="eyebrow">${course.name} \\ ${course.subject} \\ ${total}/${CL.length} lecciones</div>
+          ${
+            course.id === 'c1'
+              ? `<h1>Let's learn <em>English</em> together.</h1>
+          <p>La teoría de tus tres unidades de Inglés I, ejercicios que se corrigen solos y minijuegos para fijarlo: tiempos verbales, pronombres, preposiciones, vocabulario y writing.</p>`
+              : `<h1>Let's review and <em>go further.</em></h1>
+          <p>Inglés II: todos los tiempos de presente, pasado y futuro, used to y would, los cuatro condicionales, adjetivos -ed / -ing y verbos modales, con ejercicios y minijuegos.</p>`
+          }
           <div class="actions">
             ${
               nl
                 ? `<button type="button" class="btn primary big" data-go="#/l/${nl.id}">${total ? 'Continuar' : 'Empezar'}: ${esc(nl.title)} →</button>`
                 : `<button type="button" class="btn primary big" data-go="#/g/x-review">Repasar fallos →</button>`
             }
-            ${mistakes.size ? `<button type="button" class="btn" data-go="#/g/x-review">🩹 ${mistakes.size} ${mistakes.size === 1 ? 'fallo' : 'fallos'} por repasar</button>` : ''}
+            ${pend ? `<button type="button" class="btn" data-go="#/g/x-review">🩹 ${pend} ${pend === 1 ? 'fallo' : 'fallos'} por repasar</button>` : ''}
+            <button type="button" class="link" data-course="${other.id}">o cambia a ${other.name} · ${other.subject} →</button>
           </div>
         </div>
-        <div class="stamp" aria-hidden="true"><span><b>${UNITS.length}</b>units<br>${LESSONS.reduce((a, l) => a + l.ex.length, 0)} retos</span></div>
+        <div class="stamp" aria-hidden="true"><span><b>${course.short}</b>ASIR<br>${CL.reduce((a, l) => a + l.ex.length, 0)} retos</span></div>
       </section>
-      <div class="sec-title"><h2>Units</h2><span>01 \\ Grammar · 02 \\ Vocabulary · 03 \\ Writing</span></div>
+      <div class="sec-title"><h2>Units</h2><span>${course.subject} · ${course.units.length} units · ${CL.length} lecciones</span></div>
       <div class="units">`;
-    for (const u of UNITS) {
+    for (const u of course.units) {
       const d = unitDone(u);
       const first = u.lessons.find((l) => !done.has(l.id)) || u.lessons[0];
       h += `<button type="button" class="unit-card" data-go="#/l/${first.id}">
@@ -400,7 +455,7 @@
       <div class="how">
         <div><b>1 · Lee la ficha</b><p>Cada lección es una página de tus apuntes: la regla, la tabla y ejemplos que puedes escuchar con 🔊.</p></div>
         <div><b>2 · Practica</b><p>Seis tipos de reto: elegir, escribir, ordenar, cazar el error, unir parejas y clasificar. Lo que falles va al repaso.</p></div>
-        <div><b>3 · Juega</b><p>Contrarreloj, caza de errores y un juego propio por unidad: verbos irregulares, preposiciones y formal o informal.</p></div>
+        <div><b>3 · Juega</b><p>Contrarreloj, caza de errores y un juego propio por unidad: ${course.units.map((u) => esc(u.games[2].title)).join(', ')}.</p></div>
       </div>
     </div>`;
     el.stage.innerHTML = h;
@@ -418,12 +473,12 @@
 
   function viewLesson(l) {
     const u = l.unit;
-    const s = SEC[l.sec];
+    const s = secOf(l);
     el.stage.innerHTML = `<div class="lesson">
       <article class="sheet">
-        <div class="sheet-head"><span><b>Unit ${u.n}</b> \\ Inglés I</span><span>${esc(u.title)}</span><span>${l.page} \\ 07</span></div>
+        <div class="sheet-head"><span><b>Unit ${u.n}</b> \\ ${l.course.subject}</span><span>${esc(u.title)}</span><span>${l.page} \\ ${l.course.pages}</span></div>
         <div class="sheet-main">
-          <span class="sec-chip ${l.sec}">${s[0]} \\ ${s[1]}</span>
+          <span class="sec-chip ${s[3]}">${s[0]} \\ ${esc(s[1])}</span>
           <h1>${esc(l.title)}</h1>
           <p class="kicker">${esc(l.kicker)}</p>
           <p class="es">${esc(l.es)}</p>
@@ -451,10 +506,9 @@
         checkUnitBadges();
         if (first && unitDone(u) === u.lessons.length) confetti(90);
         refreshNav();
-        const idx = LESSONS.indexOf(l);
-        const nxt = LESSONS[idx + 1];
+        const nxt = u.lessons[l.idx + 1];
         const nextBtn =
-          nxt && nxt.unit === u
+          nxt
             ? `<button type="button" class="btn primary" data-go="#/l/${nxt.id}">Siguiente: ${esc(nxt.title)} →</button>`
             : `<button type="button" class="btn primary" data-go="#/g/${u.games[0].id}">Jugar: ${esc(u.games[0].title)} →</button>`;
         return { ok, nextBtn };
@@ -492,7 +546,7 @@
         bubble.className = 'bubble ' + (cls || '');
         bubble.innerHTML = html;
       };
-      const intro = opts.mode === 'review' ? `<b>Repaso</b>Pregunta de «${esc(ex.lesson.title)}» (Unit ${ex.lesson.unit.n}). Acertándola a la primera sale de la lista.` : pick(['Tú puedes.', 'Vamos allá.', 'Piénsalo con calma.', 'Fíjate en la ficha si dudas.']);
+      const intro = opts.mode === 'review' ? `<b>Repaso</b>Pregunta de «${esc(ex.lesson.title)}» (Unit ${ex.lesson.unit.n} · ${ex.course.subject}). Acertándola a la primera sale de la lista.` : pick(['Tú puedes.', 'Vamos allá.', 'Piénsalo con calma.', 'Fíjate en la ficha si dudas.']);
       say('', intro);
 
       const api = {
@@ -758,7 +812,7 @@
       draw();
     };
     $('#btnCheck', box).onclick = () => {
-      const s = norm(placed.map((k) => words[k]).join(' '));
+      const s = norm(placed.map((k) => words[k]).join(' ').replace(/,/g, ''));
       if (good.includes(s)) {
         locked = true;
         draw();
@@ -968,7 +1022,7 @@
   /* ---------- juegos ---------- */
 
   function gameShell(g, sub) {
-    const u = g.unit ? `Unit ${g.unit.n} \\ ${esc(g.unit.title)}` : 'Extra';
+    const u = g.unit ? `${g.unit.course.name} \\ Unit ${g.unit.n} \\ ${esc(g.unit.title)}` : `${course.name} \\ Extra`;
     el.stage.innerHTML = `<div class="game-wrap">
       <div class="game-head"><span class="gh-ico" aria-hidden="true">${g.icon}</span>
         <div><div class="sheet-head-mini mono note">${u}</div><h1>${esc(g.title)}</h1><p>${esc(sub || g.sub)}</p></div>
@@ -978,7 +1032,7 @@
     return $('#game');
   }
   function viewGame(g) {
-    ({ rush: gameRush, hunt: gameHunt, forge: gameForge, rain: gameRain, swipe: gameSwipe, review: gameReview, dict: gameDict }[g.kind])(g);
+    ({ rush: gameRush, hunt: gameHunt, forge: gameForge, rain: gameRain, swipe: gameClassify, classify: gameClassify, review: gameReview, dict: gameDict }[g.kind])(g);
   }
   function overScreen(host, o) {
     host.innerHTML = `<div class="over">
@@ -1206,7 +1260,7 @@
           draw();
           if (found.size === errs.length) {
             award('hunt');
-            if (UNITS.every((u) => u.games.filter((x) => x.kind === 'hunt').every((h) => (hunts[h.id] || []).length === parseHunt(h.text).filter((x) => x.err).length))) award('huntall');
+            if (COURSES.some((c) => c.units.every((u) => u.games.filter((x) => x.kind === 'hunt').every((h) => (hunts[h.id] || []).length === parseHunt(h.text).filter((x) => x.err).length)))) award('huntall');
             confetti(50);
           } else bubble('ok', `<b>${pick(CHEERS)}</b> «${esc(s.text)}» → «${esc(s.ok[0])}». Quedan ${errs.length - found.size}.`);
         } else {
@@ -1471,60 +1525,64 @@
     }
   }
 
-  /* Formal o informal: tarjetas que se mandan a un lado o al otro. */
-  function gameSwipe(g) {
+  /* Juegos de clasificar contra reloj: Formal o informal (2 cajas, ← →), Detective de tiempos y Condicionales (4 cajas, 1-4). */
+  function gameClassify(g) {
     const host = gameShell(g);
+    const two = g.bins.length === 2;
     $('#bestTag').textContent = `récord ${best[g.id] || 0}`;
+    const what = g.kind === 'swipe' ? '¿es de una carta a un amigo (informal) o de una redacción o email formal?' : g.badge === 'cond' ? '¿qué condicional es: hecho general, posible, imaginario o lamento?' : '¿qué tiempo verbal pide la pista?';
     introScreen(
       host,
-      `<p>Sale una frase: ¿es de una carta a un amigo (informal) o de una redacción o email formal? Tienes 60 segundos; cada fallo resta 3.</p>`,
+      `<p>Sale una frase: ${what} Tienes 60 segundos; cada fallo resta 3.</p>`,
       start,
-      '<kbd>←</kbd> informal · <kbd>→</kbd> formal'
+      two ? '<kbd>←</kbd> ' + esc(g.bins[0]) + ' · <kbd>→</kbd> ' + esc(g.bins[1]) : g.bins.map((b, k) => `<kbd>${k + 1}</kbd> ${esc(b)}`).join(' · ')
     );
     function start() {
       const T = 60;
       let left = T;
       let score = 0;
       let run = 0;
-      let bag = shuffle(SWIPE);
+      let bag = shuffle(g.bank);
       let cur = null;
       let busy = false;
       const recap = [];
+      const btn = (k, cls, label) => `<button type="button" class="btn ${cls}" data-s="${k}">${label}</button>`;
       host.innerHTML = `<div class="scorebar">${stat('Tiempo', 'wT', T)}${stat('Aciertos', 'wS', 0, 'hot')}${stat('Racha', 'wR', 0)}</div>
         <div class="timebar" id="tb"><i data-w="100"></i></div>
-        <div class="swipe-zone">
-          <button type="button" class="btn" data-s="0">← Carta informal</button>
-          <div class="card-slot" id="slot"></div>
-          <button type="button" class="btn yellow" data-s="1">Formal →</button>
-        </div>
+        ${
+          two
+            ? `<div class="swipe-zone">${btn(0, '', '← ' + esc(g.bins[0]))}<div class="card-slot" id="slot"></div>${btn(1, 'yellow', esc(g.bins[1]) + ' →')}</div>`
+            : `<div class="card-slot" id="slot"></div><div class="class-btns">${g.bins.map((b, k) => btn(k, '', `<kbd>${k + 1}</kbd> ${esc(b)}`)).join('')}</div>`
+        }
         <div class="last" id="wLast" aria-live="polite"></div>`;
       dataStyles(host);
-      $$('.swipe-zone .btn', host).forEach((b) => (b.onclick = () => answer(Number(b.dataset.s))));
+      $$('[data-s]', host).forEach((b) => (b.onclick = () => answer(Number(b.dataset.s))));
       function next() {
         if (left <= 0 || !host.isConnected) return;
-        if (!bag.length) bag = shuffle(SWIPE);
+        if (!bag.length) bag = shuffle(g.bank);
         cur = bag.pop();
         busy = false;
-        $('#slot', host).innerHTML = `<div class="scard enter">${esc(cur[0])}</div>`;
+        $('#slot', host).innerHTML = `<div class="scard enter">${esc(cur[0]).replace('___', GAP)}</div>`;
       }
       function answer(s) {
-        if (busy || left <= 0) return;
+        if (busy || left <= 0 || s >= g.bins.length) return;
         busy = true;
         const c = $('.scard', host);
         c.classList.remove('enter');
-        c.classList.add(s === 0 ? 'left' : 'right');
+        c.classList.add(two && s === 0 ? 'left' : 'right');
         const last = $('#wLast', host);
+        const name = g.bins[cur[1]];
         if (s === cur[1]) {
           score++;
           run++;
           last.className = 'last ok';
-          last.textContent = `✓ «${cur[0]}» → ${cur[1] ? 'formal' : 'informal'}. ${cur[2]}`;
+          last.textContent = `✓ ${name}. ${cur[2]}`;
         } else {
           run = 0;
           left = Math.max(0, left - 3);
           last.className = 'last bad';
-          last.textContent = `✗ «${cur[0]}» era ${cur[1] ? 'formal' : 'informal'}. ${cur[2]}`;
-          recap.push(`<li>«${esc(cur[0])}» → <b>${cur[1] ? 'formal' : 'informal'}</b>: ${esc(cur[2])}</li>`);
+          last.textContent = `✗ «${cur[0]}» → ${name}. ${cur[2]}`;
+          recap.push(`<li>«${esc(cur[0])}» → <b>${esc(name)}</b>: ${esc(cur[2])}</li>`);
         }
         $('#wS', host).textContent = score;
         $('#wR', host).textContent = run;
@@ -1540,15 +1598,17 @@
       }, 100);
       stopView = () => clearInterval(timer);
       keyHandler = (e) => {
-        if (e.key === 'ArrowLeft') return answer(0), true;
-        if (e.key === 'ArrowRight') return answer(1), true;
+        if (two && e.key === 'ArrowLeft') return answer(0), true;
+        if (two && e.key === 'ArrowRight') return answer(1), true;
+        const n = Number(e.key);
+        if (n >= 1 && n <= g.bins.length) return answer(n - 1), true;
       };
       function over() {
         clearInterval(timer);
         stopView = null;
         const rec = saveBest(g.id, score);
         addXp(score * 2);
-        if (score >= 15) award('swipe');
+        if (g.badge && score >= g.badgeAt) award(g.badge);
         $('#bestTag').textContent = `récord ${best[g.id] || 0}`;
         refreshNav();
         overScreen(host, { score, label: 'aciertos', record: rec, best: best[g.id] || 0, again: start, recap });
@@ -1560,9 +1620,9 @@
   /* Repaso de fallos: vuelven las preguntas falladas; si se aciertan a la primera, salen de la lista. */
   function gameReview(g) {
     const host = gameShell(g);
-    const ids = [...mistakes].filter((id) => EX.has(id));
+    const ids = mistakesOf(course);
     if (!ids.length) {
-      host.innerHTML = `<div class="intro">${PARROT.replace('class="parrot"', 'class="parrot hop"')}<p>No tienes fallos pendientes. Cuando falles una pregunta en una lección o en el contrarreloj, aparecerá aquí para que la repases.</p>
+      host.innerHTML = `<div class="intro">${PARROT.replace('class="parrot"', 'class="parrot hop"')}<p>No tienes fallos pendientes en ${course.name} (${course.subject}). Cuando falles una pregunta en una lección o en el contrarreloj, aparecerá aquí para que la repases.</p>
         <button type="button" class="btn primary" data-go="#/home">Volver a la portada</button></div>`;
       return;
     }
@@ -1571,15 +1631,16 @@
     const items = shuffle(ids)
       .slice(0, 12)
       .map((id) => EX.get(id));
-    const had = mistakes.size;
+    const had = ids.length;
     runSet(host, items, {
       title: `Repaso · ${items.length} de ${had}`,
       mode: 'review',
       onFinish() {
         refreshNav();
-        if (had && !mistakes.size) award('review');
+        const left = mistakesOf(course).length;
+        if (had && !left) award('review');
         return {
-          nextBtn: mistakes.size
+          nextBtn: left
             ? `<button type="button" class="btn primary" data-go="#/home">Portada</button>`
             : `<button type="button" class="btn primary" data-go="#/home">¡Lista vacía! Portada →</button>`,
         };
@@ -1634,9 +1695,9 @@
       return;
     }
     $('#bestTag').textContent = `récord ${best[g.id] || 0}/6`;
-    introScreen(host, `<p>Seis frases de los ejemplos de las unidades. Escúchalas (puedes repetir y ponerlas despacio) y escríbelas. Las contracciones valen de las dos formas: <i>I'm</i> o <i>I am</i>.</p>`, start, 'Escribe y pulsa <kbd>Enter</kbd>');
+    introScreen(host, `<p>Seis frases de los ejemplos de las unidades de ${course.subject}. Escúchalas (puedes repetir y ponerlas despacio) y escríbelas. Las contracciones valen de las dos formas: <i>I'm</i> o <i>I am</i>.</p>`, start, 'Escribe y pulsa <kbd>Enter</kbd>');
     function start() {
-      const list = shuffle(DICT).slice(0, 6);
+      const list = shuffle(dictOf(course)).slice(0, 6);
       let i = 0;
       let score = 0;
       const recap = [];
@@ -1706,8 +1767,8 @@
   function renderCheat(q) {
     const f = norm(q || '');
     const hit = (...xs) => !f || xs.some((x) => norm(x).includes(f));
-    let h = '';
-    for (const u of UNITS) {
+    let h = `<p class="note">${course.name} · ${course.subject}. Cambia de curso arriba para ver la otra chuleta.</p>`;
+    for (const u of course.units) {
       let uh = '';
       for (const l of u.lessons) {
         const rows = l.rows.filter((r) => hit(r[0], r[1], l.title, l.kicker));
@@ -1718,13 +1779,14 @@
           ${l.tip ? `<tr><td>💡</td><td>${esc(l.tip)}</td></tr>` : ''}</table>`;
       }
       if (uh) h += `<div class="cheat-u">Unit ${u.n} \\ ${esc(u.title)}</div>${uh}`;
+      if (!uh && f) continue;
     }
     const verbs = VERBS.filter((v) => hit(...v));
     if (verbs.length) {
       h += `<div class="cheat-u">Irregular verbs</div><table class="cheat-t verbs"><tr><th>Base</th><th>Past simple</th><th>Participle</th><th>Significado</th></tr>
         ${verbs.map((v) => `<tr><td>${esc(v[0])}</td><td>${esc(v[1])}</td><td>${esc(v[2])}</td><td>${esc(v[3])}</td></tr>`).join('')}</table>`;
     }
-    $('#cheatBody').innerHTML = h || '<p class="note">No hay nada con eso. Prueba con otra palabra.</p>';
+    $('#cheatBody').innerHTML = h.includes('cheat-u') ? h : h + '<p class="note">No hay nada con eso. Prueba con otra palabra.</p>';
   }
 
   function renderTrophy() {
@@ -1736,13 +1798,11 @@
       <div class="badges">${BADGES.map((b) => `<div class="badge${badges.has(b.id) ? '' : ' off'}"><span class="bi">${b.icon}</span><div><b>${esc(b.name)}</b><small>${esc(b.how)}</small></div></div>`).join('')}</div>
       <div class="cheat-l">Récords</div>
       <div class="bests">
-        ${UNITS.map((u) => `<div><span>Contrarreloj U${u.n}</span><b>${best[u.id + '-rush'] || 0}</b></div>`).join('')}
+        ${UNITS.flatMap((u) => u.games.filter((g) => !['hunt', 'forge'].includes(g.kind)).map((g) => `<div><span>${u.course.short} · U${u.n} ${esc(g.title)}</span><b>${best[g.id] || 0}</b></div>`)).join('')}
         <div><span>Forja · past simple</span><b>${best['forge-past'] || 0}</b></div>
         <div><span>Forja · participio</span><b>${best['forge-part'] || 0}</b></div>
-        <div><span>Lluvia de preposiciones</span><b>${best['u2-rain'] || 0}</b></div>
-        <div><span>Formal o informal</span><b>${best['u3-swipe'] || 0}</b></div>
         <div><span>Dictado</span><b>${best['x-dict'] || 0}/6</b></div>
-        <div><span>Lecciones</span><b>${done.size}/${LESSONS.length}</b></div>
+        ${COURSES.map((c) => `<div><span>Lecciones ${c.short}</span><b>${lessonsOf(c).filter((l) => done.has(l.id)).length}/${lessonsOf(c).length}</b></div>`).join('')}
         <div><span>Fallos por repasar</span><b>${mistakes.size}</b></div>
       </div>`;
   }
@@ -1771,6 +1831,16 @@
         if (dlg) dlg.close();
         if (location.hash === h) route();
         else location.hash = h;
+        return;
+      }
+      const cs = e.target.closest('[data-course]');
+      if (cs) {
+        const c = COURSES.find((x) => x.id === cs.dataset.course);
+        if (c && c !== course) {
+          setCourse(c);
+          if (location.hash === '#/home') route();
+          else location.hash = '#/home';
+        }
         return;
       }
       const sp = e.target.closest('[data-say]');
@@ -1873,6 +1943,7 @@
   applyTheme(store.get('theme', null));
   Voice.init();
   bind();
+  renderCourseSel();
   renderHud();
   if (!location.hash) {
     const last = store.get('last', '#/home');

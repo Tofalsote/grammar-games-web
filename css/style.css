@@ -1892,3 +1892,66 @@ code {
     display: none;
   }
 }
+
+/* ---------- selector de curso y juegos de clasificar ---------- */
+
+.course-sel {
+  align-items: stretch;
+  box-shadow: var(--sh-s);
+  background: var(--card);
+}
+.course-sel .cs-lab {
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  font: 700 10px var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border-right: var(--b);
+}
+.course-sel button {
+  font: italic 700 17px var(--serif);
+  padding: 4px 12px;
+}
+.course-sel button[aria-pressed="true"] {
+  background: var(--red);
+  color: var(--on-red);
+}
+.course-sel .cs-lab + button {
+  border-left: 0;
+}
+.class-btns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.class-btns .btn {
+  padding: 12px 8px;
+  font-size: 15px;
+}
+.class-btns kbd {
+  font: 700 11px var(--mono);
+  border: 1.5px solid currentColor;
+  padding: 0 5px;
+  margin-right: 4px;
+  opacity: 0.7;
+}
+.card-slot .scard .gap {
+  min-width: 60px;
+}
+:root[data-course="c2"] .logo {
+  transform: rotate(4deg);
+  background: var(--blue);
+}
+@media (max-width: 640px) {
+  .course-sel .cs-lab {
+    display: none;
+  }
+  .course-sel button {
+    padding: 4px 9px;
+  }
+  .class-btns {
+    grid-template-columns: 1fr 1fr;
+  }
+}

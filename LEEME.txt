@@ -1,7 +1,8 @@
 GRAMMAR GAMES
 =============
 
-Repasa la gramatica de Ingles I jugando: fichas de teoria, ejercicios y minijuegos.
+Repasa la gramatica de Ingles I (1o ASIR) e Ingles II (2o ASIR) jugando:
+fichas de teoria, ejercicios y minijuegos. Elige el curso con el boton 1o / 2o de arriba.
 
 COMO ABRIRLO
 ------------
