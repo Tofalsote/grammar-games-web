@@ -1900,15 +1900,6 @@ code {
   box-shadow: var(--sh-s);
   background: var(--card);
 }
-.course-sel .cs-lab {
-  display: grid;
-  place-items: center;
-  padding: 0 8px;
-  font: 700 10px var(--mono);
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  border-right: var(--b);
-}
 .course-sel button {
   font: italic 700 17px var(--serif);
   padding: 4px 12px;
@@ -1916,9 +1907,6 @@ code {
 .course-sel button[aria-pressed="true"] {
   background: var(--red);
   color: var(--on-red);
-}
-.course-sel .cs-lab + button {
-  border-left: 0;
 }
 .class-btns {
   display: grid;
@@ -1945,9 +1933,6 @@ code {
   background: var(--blue);
 }
 @media (max-width: 640px) {
-  .course-sel .cs-lab {
-    display: none;
-  }
   .course-sel button {
     padding: 4px 9px;
   }
